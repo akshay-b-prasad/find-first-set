@@ -1,4 +1,4 @@
-# Find First Set Bit — Three RTL Architectures, One Interview Problem
+# Find First Set Bit — Three RTL Architectures
 
 ![SystemVerilog](https://img.shields.io/badge/RTL-SystemVerilog-blue?logo=verilog&logoColor=white)
 ![Yosys](https://img.shields.io/badge/Synthesis-Yosys-orange?logo=gnubash&logoColor=white)
@@ -6,9 +6,9 @@
 ![Library](https://img.shields.io/badge/Library-ASAP7_7nm-purple)
 ![License](https://img.shields.io/badge/License-MIT-brightgreen)
 
-This problem has come up twice in my interviews. The first time I gave the obvious answer — a sequential shift-and-check loop — and moved on. The second time I caught myself mid-sentence and thought: *wait, there are at least three fundamentally different ways to build this, and which one is correct depends entirely on constraints I haven't asked about yet.* So I paused and asked. Then I went home and built all three, synthesized them against an open-source 7nm library, and let the data tell the story.
+`BSF` on x86. `CTZ` on ARM. Find First Set shows up in round-robin arbiters, out-of-order schedulers, floating-point normalizers, interrupt controllers, and memory allocators — always on the critical path.
 
-What follows isn't just working RTL. It's a full tradeoff analysis, backed by real synthesis numbers, of how one 10-word problem statement — "find the position of the lowest set bit" — can lead to radically different silicon depending on whether you care about area, latency, or throughput.
+Three independent SystemVerilog implementations, synthesized against an ASAP7-approximate 7nm library, verified across 66,536 simulation vectors. The function is simple by design: the architecture choices, not the algorithm, are the point.
 
 ---
 
@@ -533,8 +533,6 @@ git clone https://github.com/The-OpenROAD-Project/asap7
 ---
 
 ## Reflections
-
-This problem is a genuinely good interview question because it has a trivially correct answer — a for-loop shifting a register — and a rich design space for engineers who go deeper. An interviewer can calibrate from "does it work?" all the way to "explain why a casez encoder synthesizes to O(N) depth and why that matters at 1 GHz" and get a meaningful signal at every level.
 
 The most interesting result from actually running synthesis: the combinational design uses **168 cells and 8 FFs** while the pipeline uses **239 cells and 90 FFs** — yet they achieve identical throughput. The combinational design is smaller, but its 20 logic levels make it the timing-worst of the three. The pipeline, despite costing 82 more FFs and 71 more cells, closes timing at an estimated 8.3 GHz vs 2.5 GHz. There is no scenario where you'd choose the combinational design in a high-frequency pipelined datapath.
 
