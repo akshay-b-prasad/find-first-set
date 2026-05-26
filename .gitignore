@@ -5,7 +5,7 @@ reports/*.json
 reports/*.v
 reports/sim_*
 reports/netlist_*
-assets/*.png
+# assets/*.png  — charts are committed; remove this line to keep them tracked
 
 # Verilator build dirs
 verilator/obj_dir_seq/
