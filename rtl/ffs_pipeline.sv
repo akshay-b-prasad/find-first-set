@@ -49,11 +49,13 @@ module ffs_pipeline #(parameter int W = 64) (
     logic             pipe_nst [LOG2W+1]; // no_set signal propagation
 
     // Stage 0: combinational inputs — no flip-flop here
-    // valid_in and data feed directly into stage 0 logic
-    assign pipe_win[0] = data;
-    assign pipe_res[0] = '0;
-    assign pipe_vld[0] = valid_in;
-    assign pipe_nst[0] = ~|data;   // detect all-zero at input, propagate through
+    // always_comb used (not assign) so iverilog doesn't flag logic arrays as reg
+    always_comb begin
+        pipe_win[0] = data;
+        pipe_res[0] = '0;
+        pipe_vld[0] = valid_in;
+        pipe_nst[0] = ~|data;   // detect all-zero at input, propagate through
+    end
 
     // ── Generate LOG2W pipeline stages ───────────────────────────────────────
     genvar i;

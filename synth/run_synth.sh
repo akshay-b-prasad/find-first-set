@@ -33,35 +33,33 @@ echo "============================================================"
 # ── Parse cell/FF counts and logic levels from area reports ──────────────────
 parse_report() {
     local file="$1"
-    local cells=0
-    local ffs=0
-    local levels=0
+    local cells="N/A"
+    local ffs="N/A"
+    local levels="N/A"
 
     if [[ -f "$file" ]]; then
-        # Yosys stat output: "Number of cells:" and specific cell types
-        cells=$(grep -oP 'Number of cells:\s+\K\d+' "$file" 2>/dev/null || echo "N/A")
+        # Total cell count from "Number of cells:"
+        cells=$(grep -oP 'Number of cells:\s+\K\d+' "$file" 2>/dev/null | tail -1 || true)
+        [[ -z "$cells" ]] && cells="N/A"
 
-        # Count flip-flops: sum of DFFHQx1 + DFFRHQx1 instances
-        ff_count=$(grep -oP '(DFFHQx1|DFFRHQx1)\s+\K\d+' "$file" 2>/dev/null | \
-                   awk '{s+=$1} END {print s+0}')
-        ffs=${ff_count:-"N/A"}
+        # Count flip-flops: generic Yosys primitives $_DFF_*, $_SDFF_*, $_SDFFE_*
+        ffs=$(grep -oP '\$_(S?D?FFE?[A-Z0-9_]*)\s+\K\d+' "$file" 2>/dev/null | \
+              awk '{s+=$1} END {if(s>0) print s; else print "N/A"}')
 
-        # Logic levels from ltp output
-        levels=$(grep -oP 'Longest topological path.*?(\d+)\s+cells' "$file" 2>/dev/null | \
-                 grep -oP '\d+\s+cells' | grep -oP '^\d+' || \
-                 grep -oP 'logic depth:\s+\K\d+' "$file" 2>/dev/null || echo "N/A")
-    else
-        cells="N/A"; ffs="N/A"; levels="N/A"
+        # Logic levels from ltp output: "Longest topological path ... (length=N):"
+        levels=$(grep -oP 'Longest topological path.*?\(length=\K[0-9]+' "$file" 2>/dev/null | \
+                 tail -1 || true)
+        [[ -z "$levels" ]] && levels="N/A"
     fi
 
     echo "$cells $ffs $levels"
 }
 
-read seq_cells  seq_ffs  seq_levels  <<< $(parse_report reports/area_sequential.txt)
-read comb_cells comb_ffs comb_levels <<< $(parse_report reports/area_combinational.txt)
-read pipe_cells pipe_ffs pipe_levels <<< $(parse_report reports/area_pipeline.txt)
+read seq_cells  seq_ffs  seq_levels  <<< "$(parse_report reports/area_sequential.txt)"
+read comb_cells comb_ffs comb_levels <<< "$(parse_report reports/area_combinational.txt)"
+read pipe_cells pipe_ffs pipe_levels <<< "$(parse_report reports/area_pipeline.txt)"
 
-# Estimate Fmax: Fmax_est = 1 / (levels × 20ps) — conservative for ASAP7 7nm
+# Estimate Fmax: Fmax_est = 1 / (levels x 20ps) — conservative for ASAP7 7nm
 fmax_est() {
     local levels=$1
     if [[ "$levels" =~ ^[0-9]+$ ]] && (( levels > 0 )); then
@@ -71,9 +69,9 @@ fmax_est() {
     fi
 }
 
-seq_fmax=$(fmax_est  $seq_levels)
-comb_fmax=$(fmax_est $comb_levels)
-pipe_fmax=$(fmax_est $pipe_levels)
+seq_fmax=$(fmax_est  "$seq_levels")
+comb_fmax=$(fmax_est "$comb_levels")
+pipe_fmax=$(fmax_est "$pipe_levels")
 
 {
 echo "============================================================"
@@ -94,9 +92,10 @@ printf "%-22s | %-8s | %-6s | %-14s | %-14s\n" \
 printf "%-22s | %-8s | %-6s | %-14s | %-14s\n" \
        "ffs_pipeline"      "$pipe_cells" "$pipe_ffs" "$pipe_levels" "$pipe_fmax"
 echo ""
-echo "Note: Est. Fmax = 1 / (logic_levels × 20 ps/level)"
+echo "Note: Cells are generic Yosys primitives (mapped by synth internal ABC)."
+echo "      Est. Fmax = 1 / (logic_levels x 20 ps/level) — ASAP7 approx gate delay."
 echo "      Wire delay and setup time not included — actual Fmax will be lower."
-echo "      For accurate numbers, run with real ASAP7 PDK + OpenSTA."
+echo "      For accurate numbers, run with real ASAP7 PDK and OpenSTA."
 } | tee reports/synth_summary.txt
 
 echo ""

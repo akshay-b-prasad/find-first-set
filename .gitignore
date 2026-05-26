@@ -19,6 +19,12 @@ verilator/obj_dir_pipe/
 __pycache__/
 *.pyc
 
+# Stale Verilator CSVs (canonical ones go to reports/)
+verilator/*.csv
+
+# Claude Code IDE settings
+.claude/
+
 # Editor / OS
 .DS_Store
 Thumbs.db

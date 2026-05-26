@@ -1,26 +1,23 @@
 # =============================================================================
 # synth_sequential.ys  —  Yosys synthesis script for ffs_sequential
-# Target library: ASAP7 approximate 7nm (asap7_approx.lib)
+# Target: generic cell mapping (synth internal ABC, no liberty required)
 # =============================================================================
 
 # 1. Read RTL
 read_verilog -sv rtl/ffs_sequential.sv
 
-# 2. Elaborate and flatten (inline all modules/generate blocks)
+# 2. Elaborate, optimize, and technology-map to generic cells
 synth -top ffs_sequential -flatten
 
-# 3. Technology mapping to ASAP7-approximate cell library
-abc -liberty synth/asap7_approx.lib
-
-# 4. Clean up dangling wires
+# 3. Clean up dangling wires
 clean
 
-# 5. Area/cell statistics against the liberty file
-tee -o reports/area_sequential.txt stat -liberty synth/asap7_approx.lib
+# 4. Cell statistics (generic primitives: \, \, \, etc.)
+tee -o reports/area_sequential.txt stat
 
-# 6. Detailed timing path (logic depth)
+# 5. Longest topological path (logic depth in cell levels, FFs excluded)
 tee -a reports/area_sequential.txt ltp -noff
 
-# 7. Write netlist for further analysis
+# 6. Write netlist
 write_json reports/netlist_sequential.json
 write_verilog -noattr reports/netlist_sequential.v

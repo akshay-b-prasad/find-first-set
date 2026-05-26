@@ -175,7 +175,16 @@ module tb_ffs_top;
     endtask
 
     // ── Main test sequence ──────────────────────────────────────────────────
+    // Variables hoisted to top of initial block — iverilog does not support
+    // per-variable 'automatic' lifetime override inside static initial blocks.
     initial begin
+        // Local temporaries (shared across all test blocks below)
+        logic         match;
+        int           l_s, l_c, l_p;
+        logic [W-1:0] msb_only, pow2, rv;
+        int           rand_pass, rand_fail;
+        int           b, r;
+
         // Create reports directory and open CSV
         fd       = $fopen("reports/sim_comparison.csv", "w");
         if (fd == 0) fd = $fopen("sim_comparison.csv", "w");
@@ -198,57 +207,39 @@ module tb_ffs_top;
         $display("\n-- Directed tests --");
 
         // Test 1: data = 0 (no set bit)
-        begin
-            automatic logic match;
-            automatic int l_s, l_c, l_p;
-            run_vector(64'h0, l_s, l_c, l_p, match);
-            if (match) pass_cnt++; else fail_cnt++;
-            $fwrite(fd, "%h,%0d,%0d,%0d,%0d,%0d,%0d,%0d,%0d\n",
-                    64'h0, W, W, l_s, W, l_c, W, l_p, match);
-            $display("  data=0x0000...0  no_set test: %s", match ? "PASS" : "FAIL");
-        end
+        run_vector(64'h0, l_s, l_c, l_p, match);
+        if (match) pass_cnt++; else fail_cnt++;
+        $fwrite(fd, "%h,%0d,%0d,%0d,%0d,%0d,%0d,%0d,%0d\n",
+                64'h0, W, W, l_s, W, l_c, W, l_p, match);
+        $display("  data=0x0000...0  no_set test: %s", match ? "PASS" : "FAIL");
 
         // Test 2: data = 1 (bit 0 set — minimum latency)
-        begin
-            automatic logic match;
-            automatic int l_s, l_c, l_p;
-            run_vector(64'h1, l_s, l_c, l_p, match);
-            if (match) pass_cnt++; else fail_cnt++;
-            $fwrite(fd, "%h,%0d,%0d,%0d,%0d,%0d,%0d,%0d,%0d\n",
-                    64'h1, 0, res_seq, l_s, res_comb, l_c, res_pipe, l_p, match);
-            $display("  data=0x1  bit0 test (lat_seq=%0d): %s", l_s, match ? "PASS" : "FAIL");
-        end
+        run_vector(64'h1, l_s, l_c, l_p, match);
+        if (match) pass_cnt++; else fail_cnt++;
+        $fwrite(fd, "%h,%0d,%0d,%0d,%0d,%0d,%0d,%0d,%0d\n",
+                64'h1, 0, res_seq, l_s, res_comb, l_c, res_pipe, l_p, match);
+        $display("  data=0x1  bit0 test (lat_seq=%0d): %s", l_s, match ? "PASS" : "FAIL");
 
         // Test 3: data = all ones
-        begin
-            automatic logic match;
-            automatic int l_s, l_c, l_p;
-            run_vector(64'hFFFF_FFFF_FFFF_FFFF, l_s, l_c, l_p, match);
-            if (match) pass_cnt++; else fail_cnt++;
-            $fwrite(fd, "%h,%0d,%0d,%0d,%0d,%0d,%0d,%0d,%0d\n",
-                    64'hFFFF_FFFF_FFFF_FFFF, 0, res_seq, l_s, res_comb, l_c, res_pipe, l_p, match);
-            $display("  data=0xFFFF...F  all-ones test: %s", match ? "PASS" : "FAIL");
-        end
+        run_vector(64'hFFFF_FFFF_FFFF_FFFF, l_s, l_c, l_p, match);
+        if (match) pass_cnt++; else fail_cnt++;
+        $fwrite(fd, "%h,%0d,%0d,%0d,%0d,%0d,%0d,%0d,%0d\n",
+                64'hFFFF_FFFF_FFFF_FFFF, 0, res_seq, l_s, res_comb, l_c, res_pipe, l_p, match);
+        $display("  data=0xFFFF...F  all-ones test: %s", match ? "PASS" : "FAIL");
 
         // Test 4: only MSB set (worst case for sequential)
-        begin
-            automatic logic [W-1:0] msb_only = (W'(1) << (W-1));
-            automatic logic match;
-            automatic int l_s, l_c, l_p;
-            run_vector(msb_only, l_s, l_c, l_p, match);
-            if (match) pass_cnt++; else fail_cnt++;
-            $fwrite(fd, "%h,%0d,%0d,%0d,%0d,%0d,%0d,%0d,%0d\n",
-                    msb_only, W-1, res_seq, l_s, res_comb, l_c, res_pipe, l_p, match);
-            $display("  data=MSB-only test (lat_seq=%0d, worst=%0d): %s",
-                     l_s, W, match ? "PASS" : "FAIL");
-        end
+        msb_only = (W'(1) << (W-1));
+        run_vector(msb_only, l_s, l_c, l_p, match);
+        if (match) pass_cnt++; else fail_cnt++;
+        $fwrite(fd, "%h,%0d,%0d,%0d,%0d,%0d,%0d,%0d,%0d\n",
+                msb_only, W-1, res_seq, l_s, res_comb, l_c, res_pipe, l_p, match);
+        $display("  data=MSB-only test (lat_seq=%0d, worst=%0d): %s",
+                 l_s, W, match ? "PASS" : "FAIL");
 
         // Test 5: power-of-2 sweep (each individual bit position)
         $display("\n-- Power-of-2 sweep --");
-        for (int b = 0; b < W; b++) begin
-            automatic logic [W-1:0] pow2 = (W'(1) << b);
-            automatic logic match;
-            automatic int l_s, l_c, l_p;
+        for (b = 0; b < W; b++) begin
+            pow2 = (W'(1) << b);
             run_vector(pow2, l_s, l_c, l_p, match);
             if (match) pass_cnt++; else fail_cnt++;
             $fwrite(fd, "%h,%0d,%0d,%0d,%0d,%0d,%0d,%0d,%0d\n",
@@ -260,54 +251,37 @@ module tb_ffs_top;
                  W, W - fail_cnt, fail_cnt);
 
         // Test 6: alternating bit patterns
-        begin
-            automatic logic match;
-            automatic int l_s, l_c, l_p;
-            run_vector(64'hAAAA_AAAA_AAAA_AAAA, l_s, l_c, l_p, match);
-            if (match) pass_cnt++; else fail_cnt++;
-            $fwrite(fd, "%h,%0d,%0d,%0d,%0d,%0d,%0d,%0d,%0d\n",
-                    64'hAAAA_AAAA_AAAA_AAAA, 1, res_seq, l_s, res_comb, l_c, res_pipe, l_p, match);
-            run_vector(64'h5555_5555_5555_5555, l_s, l_c, l_p, match);
-            if (match) pass_cnt++; else fail_cnt++;
-            $fwrite(fd, "%h,%0d,%0d,%0d,%0d,%0d,%0d,%0d,%0d\n",
-                    64'h5555_5555_5555_5555, 0, res_seq, l_s, res_comb, l_c, res_pipe, l_p, match);
-        end
+        run_vector(64'hAAAA_AAAA_AAAA_AAAA, l_s, l_c, l_p, match);
+        if (match) pass_cnt++; else fail_cnt++;
+        $fwrite(fd, "%h,%0d,%0d,%0d,%0d,%0d,%0d,%0d,%0d\n",
+                64'hAAAA_AAAA_AAAA_AAAA, 1, res_seq, l_s, res_comb, l_c, res_pipe, l_p, match);
+        run_vector(64'h5555_5555_5555_5555, l_s, l_c, l_p, match);
+        if (match) pass_cnt++; else fail_cnt++;
+        $fwrite(fd, "%h,%0d,%0d,%0d,%0d,%0d,%0d,%0d,%0d\n",
+                64'h5555_5555_5555_5555, 0, res_seq, l_s, res_comb, l_c, res_pipe, l_p, match);
 
         // Test 7: worked example from README
-        begin
-            automatic logic match;
-            automatic int l_s, l_c, l_p;
-            run_vector(64'h0000_0000_0048_0200, l_s, l_c, l_p, match);
-            if (match) pass_cnt++; else fail_cnt++;
-            $fwrite(fd, "%h,%0d,%0d,%0d,%0d,%0d,%0d,%0d,%0d\n",
-                    64'h0000_0000_0048_0200, 9, res_seq, l_s, res_comb, l_c, res_pipe, l_p, match);
-            $display("  README example (expect bit 9): %s  got_seq=%0d got_comb=%0d got_pipe=%0d",
-                     match ? "PASS" : "FAIL", res_seq, res_comb, res_pipe);
-        end
+        run_vector(64'h0000_0000_0048_0200, l_s, l_c, l_p, match);
+        if (match) pass_cnt++; else fail_cnt++;
+        $fwrite(fd, "%h,%0d,%0d,%0d,%0d,%0d,%0d,%0d,%0d\n",
+                64'h0000_0000_0048_0200, 9, res_seq, l_s, res_comb, l_c, res_pipe, l_p, match);
+        $display("  README example (expect bit 9): %s  got_seq=%0d got_comb=%0d got_pipe=%0d",
+                 match ? "PASS" : "FAIL", res_seq, res_comb, res_pipe);
 
         // ── Random test vectors ─────────────────────────────────────────────
+        // $urandom returns 32-bit; concatenate two calls for 64-bit coverage
         $display("\n-- Random vectors (%0d) --", NUM_RAND);
-        begin
-            automatic int rand_pass = 0;
-            automatic int rand_fail = 0;
-            for (int r = 0; r < NUM_RAND; r++) begin
-                automatic logic [W-1:0] rv;
-                automatic logic match;
-                automatic int l_s, l_c, l_p;
-                void'(std::randomize(rv));
-                run_vector(rv, l_s, l_c, l_p, match);
-                if (match) begin
-                    rand_pass++;
-                    pass_cnt++;
-                end else begin
-                    rand_fail++;
-                    fail_cnt++;
-                end
-                $fwrite(fd, "%h,%0d,%0d,%0d,%0d,%0d,%0d,%0d,%0d\n",
-                        rv, golden_ffs(rv), res_seq, l_s, res_comb, l_c, res_pipe, l_p, match);
-            end
-            $display("  Random: %0d pass, %0d fail", rand_pass, rand_fail);
+        rand_pass = 0;
+        rand_fail = 0;
+        for (r = 0; r < NUM_RAND; r++) begin
+            rv = {$urandom, $urandom};
+            run_vector(rv, l_s, l_c, l_p, match);
+            if (match) begin rand_pass++; pass_cnt++; end
+            else       begin rand_fail++; fail_cnt++; end
+            $fwrite(fd, "%h,%0d,%0d,%0d,%0d,%0d,%0d,%0d,%0d\n",
+                    rv, golden_ffs(rv), res_seq, l_s, res_comb, l_c, res_pipe, l_p, match);
         end
+        $display("  Random: %0d pass, %0d fail", rand_pass, rand_fail);
 
         // ── Final report ────────────────────────────────────────────────────
         $display("\n=== RESULTS ===");
