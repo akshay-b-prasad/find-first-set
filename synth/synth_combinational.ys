@@ -1,0 +1,27 @@
+# =============================================================================
+# synth_combinational.ys  —  Yosys synthesis script for ffs_combinational
+# Target library: ASAP7 approximate 7nm (asap7_approx.lib)
+# Both MODE=0 and MODE=1 are synthesized; MODE=1 (binary tree) is the default
+# =============================================================================
+
+# 1. Read RTL (MODE=1: balanced binary mux tree)
+read_verilog -sv -D MODE=1 rtl/ffs_combinational.sv
+
+# 2. Elaborate and flatten
+synth -top ffs_combinational -flatten
+
+# 3. Technology mapping
+abc -liberty synth/asap7_approx.lib
+
+# 4. Clean up
+clean
+
+# 5. Area/cell statistics
+tee -o reports/area_combinational.txt stat -liberty synth/asap7_approx.lib
+
+# 6. Logic depth
+tee -a reports/area_combinational.txt ltp -noff
+
+# 7. Write netlist
+write_json reports/netlist_combinational.json
+write_verilog -noattr reports/netlist_combinational.v

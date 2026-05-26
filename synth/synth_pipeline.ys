@@ -1,0 +1,26 @@
+# =============================================================================
+# synth_pipeline.ys  —  Yosys synthesis script for ffs_pipeline
+# Target library: ASAP7 approximate 7nm (asap7_approx.lib)
+# =============================================================================
+
+# 1. Read RTL
+read_verilog -sv rtl/ffs_pipeline.sv
+
+# 2. Elaborate and flatten
+synth -top ffs_pipeline -flatten
+
+# 3. Technology mapping
+abc -liberty synth/asap7_approx.lib
+
+# 4. Clean up
+clean
+
+# 5. Area/cell statistics
+tee -o reports/area_pipeline.txt stat -liberty synth/asap7_approx.lib
+
+# 6. Logic depth
+tee -a reports/area_pipeline.txt ltp -noff
+
+# 7. Write netlist
+write_json reports/netlist_pipeline.json
+write_verilog -noattr reports/netlist_pipeline.v

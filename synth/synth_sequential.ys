@@ -1,0 +1,26 @@
+# =============================================================================
+# synth_sequential.ys  —  Yosys synthesis script for ffs_sequential
+# Target library: ASAP7 approximate 7nm (asap7_approx.lib)
+# =============================================================================
+
+# 1. Read RTL
+read_verilog -sv rtl/ffs_sequential.sv
+
+# 2. Elaborate and flatten (inline all modules/generate blocks)
+synth -top ffs_sequential -flatten
+
+# 3. Technology mapping to ASAP7-approximate cell library
+abc -liberty synth/asap7_approx.lib
+
+# 4. Clean up dangling wires
+clean
+
+# 5. Area/cell statistics against the liberty file
+tee -o reports/area_sequential.txt stat -liberty synth/asap7_approx.lib
+
+# 6. Detailed timing path (logic depth)
+tee -a reports/area_sequential.txt ltp -noff
+
+# 7. Write netlist for further analysis
+write_json reports/netlist_sequential.json
+write_verilog -noattr reports/netlist_sequential.v

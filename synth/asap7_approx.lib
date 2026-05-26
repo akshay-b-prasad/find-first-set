@@ -1,0 +1,489 @@
+/* =============================================================================
+   asap7_approx.lib  —  Approximate 7nm Standard Cell Library
+   =============================================================================
+   Based on published ASAP7 PDK characteristics (Integrated Device Technology,
+   Arizona State University, 2016). Timing values are approximate for RTL
+   exploration; not suitable for sign-off.
+
+   Key 7nm parameters used:
+     - FO4 delay : ~40 ps
+     - Gate delay : ~15–20 ps (FO1, simple 2-input gates)
+     - DFF clk→Q : ~40 ps
+     - DFF setup  : ~25 ps
+     - DFF hold   : ~5 ps
+     - Wire       : modeled separately (not included here)
+
+   For production use, replace with:
+     asap7_TT_08032018.lib  (from The-OpenROAD-Project/asap7 on GitHub)
+   ============================================================================= */
+
+library (asap7_approx) {
+    technology (cmos);
+    delay_model : table_lookup;
+    time_unit   : "1ps";
+    voltage_unit: "1V";
+    current_unit: "1uA";
+    leakage_power_unit: "1nW";
+    capacitive_load_unit (1, ff);
+
+    default_max_transition      : 100;
+    default_fanout_load         : 1;
+    default_inout_pin_cap       : 1.0;
+    default_input_pin_cap       : 1.0;
+    default_output_pin_cap      : 0.0;
+    default_cell_leakage_power  : 0;
+
+    /* ── Standard LUT index (transition × load) ───────────────────────── */
+    lu_table_template (delay_template_3x3) {
+        variable_1 : input_net_transition;
+        variable_2 : total_output_net_capacitance;
+        index_1    ("5, 20, 50");
+        index_2    ("1, 4, 16");
+    }
+
+    /* ===================================================================
+       COMBINATIONAL CELLS
+       =================================================================== */
+
+    /* ── INVx1 ─────────────────────────────────────────────────────────── */
+    cell (INVx1) {
+        area : 0.5;
+        pin (A)  { direction: input;  capacitance: 1.0; }
+        pin (Y)  {
+            direction : output;
+            function  : "(!A)";
+            timing () {
+                related_pin    : "A";
+                timing_sense   : negative_unate;
+                cell_rise (delay_template_3x3) {
+                    values ("10,13,18", "12,15,20", "14,17,23");
+                }
+                cell_fall (delay_template_3x3) {
+                    values ("10,13,18", "12,15,20", "14,17,23");
+                }
+            }
+        }
+    }
+
+    /* ── BUFx2 ─────────────────────────────────────────────────────────── */
+    cell (BUFx2) {
+        area : 0.75;
+        pin (A)  { direction: input;  capacitance: 1.0; }
+        pin (Y)  {
+            direction : output;
+            function  : "A";
+            timing () {
+                related_pin    : "A";
+                timing_sense   : positive_unate;
+                cell_rise (delay_template_3x3) {
+                    values ("15,19,25", "17,21,28", "20,24,32");
+                }
+                cell_fall (delay_template_3x3) {
+                    values ("15,19,25", "17,21,28", "20,24,32");
+                }
+            }
+        }
+    }
+
+    /* ── AND2x1 ─────────────────────────────────────────────────────────── */
+    cell (AND2x1) {
+        area : 1.0;
+        pin (A)  { direction: input;  capacitance: 1.0; }
+        pin (B)  { direction: input;  capacitance: 1.0; }
+        pin (Y)  {
+            direction : output;
+            function  : "(A&B)";
+            timing () {
+                related_pin    : "A";
+                timing_sense   : positive_unate;
+                cell_rise (delay_template_3x3) {
+                    values ("18,22,30", "20,25,33", "23,28,37");
+                }
+                cell_fall (delay_template_3x3) {
+                    values ("18,22,30", "20,25,33", "23,28,37");
+                }
+            }
+            timing () {
+                related_pin    : "B";
+                timing_sense   : positive_unate;
+                cell_rise (delay_template_3x3) {
+                    values ("18,22,30", "20,25,33", "23,28,37");
+                }
+                cell_fall (delay_template_3x3) {
+                    values ("18,22,30", "20,25,33", "23,28,37");
+                }
+            }
+        }
+    }
+
+    /* ── OR2x1 ──────────────────────────────────────────────────────────── */
+    cell (OR2x1) {
+        area : 1.0;
+        pin (A)  { direction: input;  capacitance: 1.0; }
+        pin (B)  { direction: input;  capacitance: 1.0; }
+        pin (Y)  {
+            direction : output;
+            function  : "(A|B)";
+            timing () {
+                related_pin    : "A";
+                timing_sense   : positive_unate;
+                cell_rise (delay_template_3x3) {
+                    values ("18,22,30", "20,25,33", "23,28,37");
+                }
+                cell_fall (delay_template_3x3) {
+                    values ("18,22,30", "20,25,33", "23,28,37");
+                }
+            }
+            timing () {
+                related_pin    : "B";
+                timing_sense   : positive_unate;
+                cell_rise (delay_template_3x3) {
+                    values ("18,22,30", "20,25,33", "23,28,37");
+                }
+                cell_fall (delay_template_3x3) {
+                    values ("18,22,30", "20,25,33", "23,28,37");
+                }
+            }
+        }
+    }
+
+    /* ── XOR2x1 ─────────────────────────────────────────────────────────── */
+    cell (XOR2x1) {
+        area : 1.5;
+        pin (A)  { direction: input;  capacitance: 1.5; }
+        pin (B)  { direction: input;  capacitance: 1.5; }
+        pin (Y)  {
+            direction : output;
+            function  : "(A^B)";
+            timing () {
+                related_pin    : "A";
+                timing_sense   : non_unate;
+                cell_rise (delay_template_3x3) {
+                    values ("22,27,36", "25,30,40", "28,34,45");
+                }
+                cell_fall (delay_template_3x3) {
+                    values ("22,27,36", "25,30,40", "28,34,45");
+                }
+            }
+            timing () {
+                related_pin    : "B";
+                timing_sense   : non_unate;
+                cell_rise (delay_template_3x3) {
+                    values ("22,27,36", "25,30,40", "28,34,45");
+                }
+                cell_fall (delay_template_3x3) {
+                    values ("22,27,36", "25,30,40", "28,34,45");
+                }
+            }
+        }
+    }
+
+    /* ── NAND2x1 ─────────────────────────────────────────────────────────── */
+    cell (NAND2x1) {
+        area : 0.75;
+        pin (A)  { direction: input;  capacitance: 1.0; }
+        pin (B)  { direction: input;  capacitance: 1.0; }
+        pin (Y)  {
+            direction : output;
+            function  : "(!( A&B))";
+            timing () {
+                related_pin  : "A";
+                timing_sense : negative_unate;
+                cell_rise (delay_template_3x3) {
+                    values ("12,16,22", "14,18,25", "17,21,29");
+                }
+                cell_fall (delay_template_3x3) {
+                    values ("12,16,22", "14,18,25", "17,21,29");
+                }
+            }
+            timing () {
+                related_pin  : "B";
+                timing_sense : negative_unate;
+                cell_rise (delay_template_3x3) {
+                    values ("12,16,22", "14,18,25", "17,21,29");
+                }
+                cell_fall (delay_template_3x3) {
+                    values ("12,16,22", "14,18,25", "17,21,29");
+                }
+            }
+        }
+    }
+
+    /* ── NOR2x1 ──────────────────────────────────────────────────────────── */
+    cell (NOR2x1) {
+        area : 0.75;
+        pin (A)  { direction: input;  capacitance: 1.0; }
+        pin (B)  { direction: input;  capacitance: 1.0; }
+        pin (Y)  {
+            direction : output;
+            function  : "(!(A|B))";
+            timing () {
+                related_pin  : "A";
+                timing_sense : negative_unate;
+                cell_rise (delay_template_3x3) {
+                    values ("12,16,22", "14,18,25", "17,21,29");
+                }
+                cell_fall (delay_template_3x3) {
+                    values ("12,16,22", "14,18,25", "17,21,29");
+                }
+            }
+            timing () {
+                related_pin  : "B";
+                timing_sense : negative_unate;
+                cell_rise (delay_template_3x3) {
+                    values ("12,16,22", "14,18,25", "17,21,29");
+                }
+                cell_fall (delay_template_3x3) {
+                    values ("12,16,22", "14,18,25", "17,21,29");
+                }
+            }
+        }
+    }
+
+    /* ── MX2x1 (2:1 mux) ────────────────────────────────────────────────── */
+    cell (MX2x1) {
+        area : 1.5;
+        pin (A)  { direction: input;  capacitance: 1.5; }
+        pin (B)  { direction: input;  capacitance: 1.5; }
+        pin (S)  { direction: input;  capacitance: 2.0; }
+        pin (Y)  {
+            direction : output;
+            function  : "((S ? B : A))";
+            timing () {
+                related_pin  : "A";
+                timing_sense : non_unate;
+                cell_rise (delay_template_3x3) {
+                    values ("20,25,34", "23,28,38", "26,32,43");
+                }
+                cell_fall (delay_template_3x3) {
+                    values ("20,25,34", "23,28,38", "26,32,43");
+                }
+            }
+            timing () {
+                related_pin  : "B";
+                timing_sense : non_unate;
+                cell_rise (delay_template_3x3) {
+                    values ("20,25,34", "23,28,38", "26,32,43");
+                }
+                cell_fall (delay_template_3x3) {
+                    values ("20,25,34", "23,28,38", "26,32,43");
+                }
+            }
+            timing () {
+                related_pin  : "S";
+                timing_sense : non_unate;
+                cell_rise (delay_template_3x3) {
+                    values ("22,27,36", "25,30,40", "28,34,45");
+                }
+                cell_fall (delay_template_3x3) {
+                    values ("22,27,36", "25,30,40", "28,34,45");
+                }
+            }
+        }
+    }
+
+    /* ── AOI21x1 (AND-OR-INV: Y = !(A1&A2 | B)) ─────────────────────────── */
+    cell (AOI21x1) {
+        area : 1.0;
+        pin (A1) { direction: input;  capacitance: 1.0; }
+        pin (A2) { direction: input;  capacitance: 1.0; }
+        pin (B)  { direction: input;  capacitance: 1.0; }
+        pin (Y)  {
+            direction : output;
+            function  : "(!((A1&A2)|B))";
+            timing () {
+                related_pin  : "A1";
+                timing_sense : negative_unate;
+                cell_rise (delay_template_3x3) {
+                    values ("14,18,24", "16,20,27", "19,23,31");
+                }
+                cell_fall (delay_template_3x3) {
+                    values ("14,18,24", "16,20,27", "19,23,31");
+                }
+            }
+            timing () {
+                related_pin  : "A2";
+                timing_sense : negative_unate;
+                cell_rise (delay_template_3x3) {
+                    values ("14,18,24", "16,20,27", "19,23,31");
+                }
+                cell_fall (delay_template_3x3) {
+                    values ("14,18,24", "16,20,27", "19,23,31");
+                }
+            }
+            timing () {
+                related_pin  : "B";
+                timing_sense : negative_unate;
+                cell_rise (delay_template_3x3) {
+                    values ("12,16,22", "14,18,25", "17,21,29");
+                }
+                cell_fall (delay_template_3x3) {
+                    values ("12,16,22", "14,18,25", "17,21,29");
+                }
+            }
+        }
+    }
+
+    /* ── OAI21x1 (OR-AND-INV: Y = !((A1|A2) & B)) ───────────────────────── */
+    cell (OAI21x1) {
+        area : 1.0;
+        pin (A1) { direction: input;  capacitance: 1.0; }
+        pin (A2) { direction: input;  capacitance: 1.0; }
+        pin (B)  { direction: input;  capacitance: 1.0; }
+        pin (Y)  {
+            direction : output;
+            function  : "(!((A1|A2)&B))";
+            timing () {
+                related_pin  : "A1";
+                timing_sense : negative_unate;
+                cell_rise (delay_template_3x3) {
+                    values ("14,18,24", "16,20,27", "19,23,31");
+                }
+                cell_fall (delay_template_3x3) {
+                    values ("14,18,24", "16,20,27", "19,23,31");
+                }
+            }
+            timing () {
+                related_pin  : "A2";
+                timing_sense : negative_unate;
+                cell_rise (delay_template_3x3) {
+                    values ("14,18,24", "16,20,27", "19,23,31");
+                }
+                cell_fall (delay_template_3x3) {
+                    values ("14,18,24", "16,20,27", "19,23,31");
+                }
+            }
+            timing () {
+                related_pin  : "B";
+                timing_sense : negative_unate;
+                cell_rise (delay_template_3x3) {
+                    values ("12,16,22", "14,18,25", "17,21,29");
+                }
+                cell_fall (delay_template_3x3) {
+                    values ("12,16,22", "14,18,25", "17,21,29");
+                }
+            }
+        }
+    }
+
+    /* ===================================================================
+       SEQUENTIAL CELLS
+       =================================================================== */
+
+    /* ── DFFHQx1 — positive-edge D flip-flop (Q only, no QN) ─────────────── */
+    cell (DFFHQx1) {
+        area         : 3.0;
+        ff (IQ, IQN) { next_state: "D"; clocked_on: "CLK"; }
+
+        pin (CLK) {
+            direction      : input;
+            capacitance    : 2.0;
+            clock          : true;
+        }
+        pin (D) {
+            direction   : input;
+            capacitance : 1.0;
+            timing () {
+                related_pin      : "CLK";
+                timing_type      : setup_rising;
+                rise_constraint (delay_template_3x3) {
+                    values ("25,25,25", "25,25,25", "25,25,25");
+                }
+                fall_constraint (delay_template_3x3) {
+                    values ("25,25,25", "25,25,25", "25,25,25");
+                }
+            }
+            timing () {
+                related_pin      : "CLK";
+                timing_type      : hold_rising;
+                rise_constraint (delay_template_3x3) {
+                    values ("5,5,5", "5,5,5", "5,5,5");
+                }
+                fall_constraint (delay_template_3x3) {
+                    values ("5,5,5", "5,5,5", "5,5,5");
+                }
+            }
+        }
+        pin (Q) {
+            direction  : output;
+            function   : "IQ";
+            timing () {
+                related_pin      : "CLK";
+                timing_type      : rising_edge;
+                timing_sense     : non_unate;
+                cell_rise (delay_template_3x3) {
+                    values ("40,45,52", "42,47,55", "45,50,58");
+                }
+                cell_fall (delay_template_3x3) {
+                    values ("40,45,52", "42,47,55", "45,50,58");
+                }
+            }
+        }
+    }
+
+    /* ── DFFRHQx1 — D flip-flop with synchronous active-low reset ─────────── */
+    cell (DFFRHQx1) {
+        area         : 4.0;
+        ff (IQ, IQN) { next_state: "(D & RN)"; clocked_on: "CLK"; }
+
+        pin (CLK) {
+            direction   : input;
+            capacitance : 2.0;
+            clock       : true;
+        }
+        pin (RN) {
+            direction   : input;
+            capacitance : 1.5;
+            timing () {
+                related_pin  : "CLK";
+                timing_type  : setup_rising;
+                rise_constraint (delay_template_3x3) {
+                    values ("25,25,25", "25,25,25", "25,25,25");
+                }
+                fall_constraint (delay_template_3x3) {
+                    values ("25,25,25", "25,25,25", "25,25,25");
+                }
+            }
+        }
+        pin (D) {
+            direction   : input;
+            capacitance : 1.0;
+            timing () {
+                related_pin  : "CLK";
+                timing_type  : setup_rising;
+                rise_constraint (delay_template_3x3) {
+                    values ("25,25,25", "25,25,25", "25,25,25");
+                }
+                fall_constraint (delay_template_3x3) {
+                    values ("25,25,25", "25,25,25", "25,25,25");
+                }
+            }
+            timing () {
+                related_pin  : "CLK";
+                timing_type  : hold_rising;
+                rise_constraint (delay_template_3x3) {
+                    values ("5,5,5", "5,5,5", "5,5,5");
+                }
+                fall_constraint (delay_template_3x3) {
+                    values ("5,5,5", "5,5,5", "5,5,5");
+                }
+            }
+        }
+        pin (Q) {
+            direction  : output;
+            function   : "IQ";
+            timing () {
+                related_pin  : "CLK";
+                timing_type  : rising_edge;
+                timing_sense : non_unate;
+                cell_rise (delay_template_3x3) {
+                    values ("42,47,55", "44,49,58", "47,52,61");
+                }
+                cell_fall (delay_template_3x3) {
+                    values ("42,47,55", "44,49,58", "47,52,61");
+                }
+            }
+        }
+    }
+
+}

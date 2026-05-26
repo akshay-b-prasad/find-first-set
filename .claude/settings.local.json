@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(iverilog -g2012 -tnull rtl/ffs_sequential.sv)",
+      "Bash(iverilog -g2012 -tnull rtl/ffs_combinational.sv)",
+      "Bash(iverilog -g2012 -tnull rtl/ffs_pipeline.sv)",
+      "PowerShell(Get-Command iverilog -ErrorAction SilentlyContinue)",
+      "PowerShell(Get-Command wsl -ErrorAction SilentlyContinue)"
+    ]
+  }
+}

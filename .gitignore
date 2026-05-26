@@ -1,0 +1,30 @@
+# Generated outputs
+reports/*.csv
+reports/*.txt
+reports/*.json
+reports/*.v
+reports/sim_*
+reports/netlist_*
+assets/*.png
+
+# Verilator build dirs
+verilator/obj_dir_seq/
+verilator/obj_dir_comb/
+verilator/obj_dir_pipe/
+
+# Compiled simulation binaries
+*.vvp
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Editor / OS
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+
+# Keep placeholder files
+!assets/.gitkeep
+!reports/.gitkeep
