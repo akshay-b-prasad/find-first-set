@@ -28,7 +28,7 @@ This appears in more real systems than you might expect:
 |---|---|
 | Round-robin arbiter | Find next pending requestor in a rotating bitmap |
 | Out-of-order scheduler | Find oldest ready instruction in the ready vector |
-| Floating-point normalization | Leading zero count before mantissa shift |
+| Memory allocator | Find first free page in a physical memory bitmap |
 | Interrupt controller | Find highest-priority pending IRQ |
 | Memory allocator | Find first free page in a physical page bitmap |
 
@@ -191,7 +191,7 @@ FF breakdown for W=64:
 | `result` | 6 | output, set on RUNNING→DONE |
 | `valid_out` | 1 | output valid pulse |
 | `no_set` | 1 | no-set flag |
-| **Total** | **80** | (synthesis: 81 after mapping overhead) |
+| **Total** | **81** | (synthesis result; Yosys maps overhead FFs from FSM encoding) |
 
 The critical path is `counter` FF → 6-bit comparator → `state` FF: roughly 7 gate levels, the shallowest of the three designs.
 
@@ -469,7 +469,7 @@ Test suite coverage:
 | Metric | Sequential | Combinational | Pipeline |
 |---|---|---|---|
 | Latency (W=64) | 3–66 cycles | 1 cycle | 6 cycles |
-| Throughput | 1 / 66 cyc⁻¹ | 1 cyc⁻¹ | 1 cyc⁻¹ |
+| Throughput | 1 / 66 cyc⁻¹ (worst-case) | 1 cyc⁻¹ | 1 cyc⁻¹ |
 | Cell count | **322** | **168** | **239** |
 | Flip-flop count | **81** | **8** | **90** |
 | Logic levels | **7** | **20** | **6** |
@@ -481,7 +481,7 @@ Test suite coverage:
 
 **Latency and Fmax are not the same thing.** The sequential design has the shallowest critical path (7 levels, ~7.1 GHz) while having the worst latency (up to 66 cycles). High Fmax means the clock can tick fast. It says nothing about how many ticks the answer takes.
 
-**The pipeline is strictly better than combinational for pipelined datapaths.** Both achieve 1 result/cycle throughput, but the pipeline's per-stage depth is 6 gate levels vs 20 for the combinational design. Same throughput, better timing margin, lower switching power. The only cost is 6-cycle fill latency and 82 more FFs.
+**The pipeline is strictly better than combinational for pipelined datapaths.** Both achieve 1 result/cycle throughput, but the pipeline's total combinational depth (6 gate levels, measured with `ltp -noff`) is 3.3x shallower than the combinational design's 20 levels. Same throughput, better timing margin, lower switching power. The only cost is 6-cycle fill latency and 82 more FFs.
 
 **`casez` is a synthesis trap.** A `casez` priority encoder for W=64 creates 64 gate levels (O(N)) vs 20 for the generate tree (O(log N)). This is probably the most common mistake in RTL implementations of priority functions, and it fails timing at anything above ~870 MHz at 7nm.
 
@@ -548,7 +548,7 @@ The full RTL, testbenches, synthesis scripts, and simulation data are in the rep
 ```
 find-first-set/
 ├── rtl/
-│   ├── ffs_sequential.sv      # FSM + shift register (80 FFs, 7 logic levels)
+│   ├── ffs_sequential.sv      # FSM + shift register (81 FFs, 7 logic levels)
 │   ├── ffs_combinational.sv   # Parallel generate tree (8 FFs, 20 logic levels)
 │   └── ffs_pipeline.sv        # log₂(W) pipeline stages (90 FFs, 6 logic levels)
 ├── tb/
