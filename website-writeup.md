@@ -24,15 +24,17 @@ All three were synthesized with Yosys against an ASAP7-approximate 7nm library a
 
 ## The Three Architectures: An Honest Trade-off Analysis
 
-### Architecture 1: Sequential Shifter — Paying the Latency Tax Deliberately
+### Architecture 1: Sequential Shifter — Paying the Latency Tax
 
 The sequential shifter is a three-state FSM (`IDLE → RUNNING → DONE`) that shifts the input register right one bit per cycle and checks bit 0 at each step.
 
-The immediate reaction from most engineers is to dismiss this as "slow." That reaction is understandable but misses the point. There are real design scenarios where you *want* to pay a latency tax in exchange for area and power savings:
+At W=64 it synthesizes to **322 cells and 81 FFs** — actually the largest of the three designs by cell count. That surprises most people. The cell overhead comes from the 64-bit shift register, the 6-bit counter, the FSM logic, and the comparator, all of which the combinatorial and pipeline designs never instantiate. This is not an area win.
+
+What it is: a deliberate trade of latency for simplicity and low switching activity. On any given cycle, only a tiny slice of the design is active — one shift, one bit check, one counter increment. That has real value in:
 
 - **Control paths with relaxed timing constraints**, where FFS runs infrequently and latency budget is loose
-- **Area-constrained designs** where every cell counts and the FFS result isn't on the microarchitectural critical path
 - **Low-clock-frequency mixed-signal SoCs** where you're optimizing for leakage and dynamic power, not cycle time
+- Scenarios where the sheer simplicity of the design makes it easier to verify and integrate
 
 At W=64, this design synthesized to **322 cells and 81 FFs** with a critical path of just 7 logic levels (~7.1 GHz estimated Fmax). The shallow critical path is a direct consequence of doing minimal work each cycle: one shift, one bit check, one counter increment. The price is up to 66 cycles of latency for an all-zeros or MSB-only input.
 
@@ -85,7 +87,7 @@ The gap comes from OR-reduce fan-in at the wider early stages. OR-reducing 32 bi
 
 If your timing target is 3 GHz+, this design simply does not close. Design Compiler or Fusion Compiler will flag WNS violations on the path from `data` to `result`, and there's no useful restructuring directive that fixes the fundamental fan-in problem. You'd be fighting the tool in a war you can't win.
 
-The combinatorial design synthesized to **168 cells and just 8 FFs** (output register only). It's the smallest design and has 1-cycle throughput, which makes it attractive for moderate-frequency systems below 2 GHz where the FF budget matters more than the logic depth. Above that, it's a timing liability.
+The combinatorial design synthesized to **168 cells and just 8 FFs** (output register only). It's the smallest design by cell count — fewer cells than either the sequential or pipeline — and delivers 1-cycle throughput. That makes it genuinely attractive for moderate-frequency systems below 2 GHz where area and FF budget matter more than logic depth. Above that, it's a timing liability.
 
 ```systemverilog
 genvar i;

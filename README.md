@@ -54,8 +54,8 @@ Before writing a single line of RTL, a real designer asks: **what are the constr
   ┌─────────────────────┬────────────┬──────────────┬───────────┐
   │ Design              │ Latency    │ Throughput   │ Area      │
   ├─────────────────────┼────────────┼──────────────┼───────────┤
-  │ Sequential (FSM)    │ 3–66 cyc   │ 1/66 cyc⁻¹   │ ░░░       │
-  │ Combinational       │ 1 cyc      │ 1 cyc⁻¹      │ ░░░░░░░   │
+  │ Sequential (FSM)    │ 3–66 cyc   │ 1/66 cyc⁻¹   │ ░░░░░░░   │
+  │ Combinational       │ 1 cyc      │ 1 cyc⁻¹      │ ░░░       │
   │ Pipeline (log₂ BST) │ 6 cyc      │ 1 cyc⁻¹      │ ░░░░░     │
   └─────────────────────┴────────────┴──────────────┴───────────┘
 ```
@@ -197,9 +197,9 @@ The critical path is `counter` FF → 6-bit comparator → `state` FF: roughly 7
 
 ### When to Use
 
-- Area-constrained designs where latency is acceptable
-- FFS sits off the critical path with relaxed timing
-- Low-utilization workloads where FFS is triggered infrequently
+- Control paths where throughput is not a premium and latency budget is loose
+- FFS sits off the critical path and fires infrequently
+- Designs where simplicity and low switching activity matter more than cell count
 
 ---
 
