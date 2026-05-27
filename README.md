@@ -1,4 +1,4 @@
-# Find First Set Bit — Three RTL Architectures
+# Find First Set Bit: Three RTL Architectures
 
 ![SystemVerilog](https://img.shields.io/badge/RTL-SystemVerilog-blue?logo=verilog&logoColor=white)
 ![Yosys](https://img.shields.io/badge/Synthesis-Yosys-orange?logo=gnubash&logoColor=white)
@@ -6,7 +6,7 @@
 ![Library](https://img.shields.io/badge/Library-ASAP7_7nm-purple)
 ![License](https://img.shields.io/badge/License-MIT-brightgreen)
 
-`BSF` on x86. `CTZ` on ARM. Find First Set shows up in round-robin arbiters, out-of-order schedulers, floating-point normalizers, interrupt controllers, and memory allocators — always on the critical path.
+`BSF` on x86. `CTZ` on ARM. Find First Set shows up in round-robin arbiters, out-of-order schedulers, floating-point normalizers, interrupt controllers, and memory allocators, always on the critical path.
 
 Three independent SystemVerilog implementations, synthesized against an ASAP7-approximate 7nm library, verified across 66,536 simulation vectors. The function is simple by design: the architecture choices, not the algorithm, are the point.
 
@@ -48,7 +48,7 @@ FFS result        = 9  (the lowest set bit, 0-indexed)
 
 ## Design Space
 
-Before writing a single line of RTL, a real designer asks: **what are the constraints?** Area, latency, and throughput form a triangle — you can optimize two, but the third fights back.
+Before writing a single line of RTL, a real designer asks: **what are the constraints?** Area, latency, and throughput form a triangle. You can optimize two, but the third fights back.
 
 ```
   ┌─────────────────────┬────────────┬──────────────┬───────────┐
@@ -60,7 +60,7 @@ Before writing a single line of RTL, a real designer asks: **what are the constr
   └─────────────────────┴────────────┴──────────────┴───────────┘
 ```
 
-The combinational and pipeline designs achieve identical throughput — but the combinational design packs all the work into a single deep cone, while the pipeline spreads it across 6 shallow stages. That difference is the entire story of this project.
+The combinational and pipeline designs achieve identical throughput, but the combinational design packs all the work into a single deep cone while the pipeline spreads it across 6 shallow stages. That difference is the entire story of this project.
 
 ![Tradeoff Radar](assets/tradeoff_radar.png)
 
@@ -150,12 +150,13 @@ always_ff @(posedge clk) begin
 end
 ```
 
-**Design choices:**
-- **Synchronous reset** — smaller FFs in the ASAP7 library; simpler reset-tree timing than asynchronous
-- **Shift right** (not left) — bit 0 is always the check point; one wire tap, zero extra gate levels
-- **`valid_out` defaults to 0** — prevents latches in the output register
-- **DONE → RUNNING chaining** — back-to-back requests skip the IDLE cycle entirely; zero throughput penalty for streaming workloads
-- **No staging registers** — `result` and `no_set` are driven directly in RUNNING and held stable through DONE, saving 7 FFs versus a naive double-buffered design
+A few choices worth explaining:
+
+- Synchronous reset throughout. The ASAP7 library has smaller cells for synchronous FFs, and it keeps reset-tree timing simpler than async.
+- Shift right, not left. Bit 0 is always the check point, so one wire tap per cycle and no extra gate levels needed.
+- `valid_out` defaults to 0 each clock to prevent the output register from inferring a latch.
+- DONE chains directly to RUNNING on a back-to-back request, skipping IDLE entirely. No throughput penalty for streaming workloads.
+- No staging registers. An earlier draft buffered `result` and `no_set` into `result_r`/`no_set_r` and forwarded them in DONE. Cutting those staging registers saved 7 FFs for no functional gain, since DONE holds the outputs stable anyway.
 
 ### Performance
 
@@ -167,7 +168,7 @@ Measured on 66,536 vectors (Verilator, exhaustive 16-bit sweep + random 64-bit):
 | Maximum latency | **66 cycles** (W=64: all-zeros or MSB-only input) |
 | Average latency | **4.00 cycles** (dominated by the many inputs with low-order bits set) |
 
-The average of 4.0 reflects that in the exhaustive 16-bit sweep, ~50% of all inputs have bit 0 set (3-cycle result), ~25% have bit 1 as LSB (4 cycles), and so on — the distribution is geometric.
+The average of 4.0 reflects that in the exhaustive 16-bit sweep, roughly 50% of all inputs have bit 0 set (3-cycle result), 25% have bit 1 as LSB (4 cycles), and so on. The distribution is geometric.
 
 ![Latency Distribution](assets/latency_distribution.png)
 
@@ -208,7 +209,7 @@ The critical path is `counter` FF → 6-bit comparator → `state` FF: roughly 7
 
 Two modes, same result: compute the answer entirely in combinational logic and register the output once.
 
-#### MODE=0 — Isolate-and-Encode
+#### MODE=0: Isolate-and-Encode
 
 The two's complement trick: `data & (~data + 1)` isolates exactly the lowest set bit into a one-hot vector.
 
@@ -223,7 +224,7 @@ Why it works: `~data + 1` = `-data` in two's complement. The addition propagates
 
 After isolation, a parallel OR-tree encodes the one-hot position into binary: result bit `b` = OR of all one-hot positions `k` where bit `b` of `k` is set. Depth = log₂(W).
 
-#### MODE=1 — Binary Mux Tree *(default)*
+#### MODE=1: Binary Mux Tree *(default)*
 
 Recursive binary search in hardware. Each of log₂(W) = 6 stages halves the search window:
 
@@ -242,9 +243,9 @@ Each stage is 2 gate levels: an OR-reduce and a mux. Six stages = 12 gate levels
 
 ### Why Not casez?
 
-A `casez` priority encoder for W=64 synthesizes to a **priority chain** — a sequence of 64 muxes where each depends on the previous. That's 64 gate levels. At 7nm (~18 ps/level) the delay is ~1.15 ns, capping Fmax at ~870 MHz before wire delay or setup time. The design fails 1 GHz timing with no margin.
+A `casez` priority encoder for W=64 synthesizes to a priority chain: a sequence of 64 muxes where each depends on the previous. That's 64 gate levels. At 7nm (~18 ps/level) the delay is ~1.15 ns, capping Fmax at ~870 MHz before wire delay or setup time. The design fails 1 GHz timing with no margin.
 
-A `for` loop in `always_comb` produces the same chain — the synthesizer unrolls it into 64 serial assignments.
+A `for` loop in `always_comb` produces the same chain; the synthesizer unrolls it into 64 serial assignments.
 
 The `generate`-based mux tree achieves O(log N) depth because the tree is explicit at **elaboration time**. Every level is computed independently. This is the fundamental reason `generate` exists in SystemVerilog: to express parallel hardware structure that a for-loop cannot.
 
@@ -303,7 +304,7 @@ The 20-level result (vs 12 theoretical) comes from the OR-reduce fan-in at the e
 
 ### Architecture
 
-The most interesting design and the right answer for most high-performance datapaths. The binary search in Design 2 makes exactly one decision per level — check lower half, select which half to keep. Instead of doing all 6 decisions in one deep cone, the pipeline executes each decision in a separate clock stage.
+The most interesting design and the right answer for most high-performance datapaths. The binary search in Design 2 makes exactly one decision per level: check the lower half, select which half to keep. Instead of doing all 6 decisions in one deep cone, the pipeline executes each decision in a separate clock stage.
 
 ```
   clk   ─┬───────┬───────┬───────┬───────┬───────┬───────┬──▶
@@ -323,12 +324,12 @@ Tracing `data = 64'h0000_0000_0000_0040` (only bit 6 set; expected result = 6):
 
 | Stage | Window inspected | Lower half has set bit? | This stage's result bit | Offset |
 |-------|-----------------|------------------------|------------------------|--------|
-| 0 | `[63:0]` | YES — bit 6 is in `[31:0]` | result[5] = 0 | +0 |
-| 1 | `[31:0]` | YES — bit 6 is in `[15:0]` | result[4] = 0 | +0 |
-| 2 | `[15:0]` | YES — bit 6 is in `[7:0]` | result[3] = 0 | +0 |
-| 3 | `[7:0]` | NO — bit 6 is in upper `[7:4]`, not `[3:0]` | result[2] = 1 | +4 |
-| 4 | `[7:4]` (as `[3:0]`) | YES — bit 6 is at index 2 of this window | result[1] = 0 | +0 |
-| 5 | `[7:6]` (as `[1:0]`) | YES — bit 6 is at index 0 of this window | result[0] = 0 | +0 |
+| 0 | `[63:0]` | YES, bit 6 is in `[31:0]` | result[5] = 0 | +0 |
+| 1 | `[31:0]` | YES, bit 6 is in `[15:0]` | result[4] = 0 | +0 |
+| 2 | `[15:0]` | YES, bit 6 is in `[7:0]` | result[3] = 0 | +0 |
+| 3 | `[7:0]` | NO, bit 6 is in upper `[7:4]`, not `[3:0]` | result[2] = 1 | +4 |
+| 4 | `[7:4]` (as `[3:0]`) | YES, bit 6 is at index 2 of this window | result[1] = 0 | +0 |
+| 5 | `[7:6]` (as `[1:0]`) | YES, bit 6 is at index 0 of this window | result[0] = 0 | +0 |
 
 **result = {0,0,0,1,0,0}₂ = 4 = … wait, +4 from stage 3, then lower from stage 4, lower from stage 5 = position 4+2+0 = 6** ✓
 
@@ -413,7 +414,7 @@ Theoretical:  6 stages × (64 + 6 + 1 + 1) FFs = 432 FFs
 After synthesis trimming of unused pipe_win upper bits: 90 FFs
 ```
 
-Synthesis aggressively eliminates the zero-padded upper bits of `pipe_win` at each stage — by stage 1, only 32 bits of the window matter; by stage 5, only 2. Yosys + ABC reduce 432 theoretical FFs to **90 actual FFs**, a 4.8× reduction.
+Synthesis eliminates the zero-padded upper bits of `pipe_win` at each stage. By stage 1, only 32 bits of the window are live; by stage 5, only 2. Yosys + ABC reduce 432 theoretical FFs to **90 actual FFs**, a 4.8x reduction.
 
 ### Synthesis Results (Yosys, ASAP7-approximate 7nm)
 
@@ -478,13 +479,13 @@ Test suite coverage:
 
 ### Key Findings
 
-**Latency and Fmax are not the same thing.** The sequential design has the *shallowest* critical path (7 levels, ~7.1 GHz) while having the *worst* latency (up to 66 cycles). High Fmax means the clock can tick fast — it says nothing about how many ticks the answer takes.
+**Latency and Fmax are not the same thing.** The sequential design has the shallowest critical path (7 levels, ~7.1 GHz) while having the worst latency (up to 66 cycles). High Fmax means the clock can tick fast. It says nothing about how many ticks the answer takes.
 
-**The pipeline is strictly better than combinational for pipelined datapaths.** Both achieve 1 result/cycle throughput, but the pipeline's per-stage depth is 6 gate levels vs 20 for the combinational design. Same throughput, better timing margin, lower switching power (fewer gates toggling per cycle). The only cost is 6-cycle fill latency and 82 more FFs.
+**The pipeline is strictly better than combinational for pipelined datapaths.** Both achieve 1 result/cycle throughput, but the pipeline's per-stage depth is 6 gate levels vs 20 for the combinational design. Same throughput, better timing margin, lower switching power. The only cost is 6-cycle fill latency and 82 more FFs.
 
-**`casez` is a synthesis trap.** A `casez` priority encoder for W=64 creates 64 gate levels (O(N)) vs 20 for the generate tree (O(log N)). This is the single most common mistake in RTL implementations of priority functions and it fails timing at anything above ~870 MHz at 7nm.
+**`casez` is a synthesis trap.** A `casez` priority encoder for W=64 creates 64 gate levels (O(N)) vs 20 for the generate tree (O(log N)). This is probably the most common mistake in RTL implementations of priority functions, and it fails timing at anything above ~870 MHz at 7nm.
 
-**Synthesis trimming is real.** The pipeline was designed with 432 theoretical FFs — synthesis pruned it to 90. RTL area estimates without running synthesis are unreliable. The tool eliminates structure you wrote but didn't need.
+**Synthesis trimming is real.** The pipeline was designed with 432 theoretical FFs; synthesis pruned it to 90. RTL area estimates without running synthesis are unreliable. The tool eliminates structure you wrote but didn't need.
 
 ---
 
@@ -513,10 +514,10 @@ make all
 ### Individual Targets
 
 ```bash
-make syntax      # iverilog syntax check — run this first
+make syntax      # iverilog syntax check, run this first
 make sim         # Icarus Verilog functional simulation (all 3 designs)
 make verilator   # Verilator cycle-accurate simulation + latency CSVs
-make synth       # Yosys synthesis → area reports and netlist JSONs
+make synth       # Yosys synthesis, area reports and netlist JSONs
 make plot        # Generate all 5 charts from reports/
 make clean       # Remove all generated files
 ```
@@ -534,9 +535,9 @@ git clone https://github.com/The-OpenROAD-Project/asap7
 
 ## Reflections
 
-The most interesting result from actually running synthesis: the combinational design uses **168 cells and 8 FFs** while the pipeline uses **239 cells and 90 FFs** — yet they achieve identical throughput. The combinational design is smaller, but its 20 logic levels make it the timing-worst of the three. The pipeline, despite costing 82 more FFs and 71 more cells, closes timing at an estimated 8.3 GHz vs 2.5 GHz. There is no scenario where you'd choose the combinational design in a high-frequency pipelined datapath.
+The most interesting result from actually running synthesis: the combinational design uses **168 cells and 8 FFs** while the pipeline uses **239 cells and 90 FFs**, yet they achieve identical throughput. The combinational design is smaller, but its 20 logic levels make it the timing-worst of the three. The pipeline, despite costing 82 more FFs and 71 more cells, closes timing at an estimated 8.3 GHz vs 2.5 GHz. There's no scenario where you'd choose the combinational design in a high-frequency pipelined datapath.
 
-The numbers here use an approximate ASAP7 7nm liberty stub. With the full ASAP7 PDK and OpenSTA, the relative rankings stay the same but absolute Fmax numbers drop by 30–40% once wire delay and sign-off derating are applied. At Sky130 (130nm open-source), you'd multiply delays by roughly 15–20× — the pipeline would still be the correct choice, but the combinational design's 20-level cone would fail to close at anything above ~100 MHz.
+The numbers here use an approximate ASAP7 7nm liberty stub. With the full ASAP7 PDK and OpenSTA, the relative rankings stay the same but absolute Fmax numbers drop by 30–40% once wire delay and sign-off derating are applied. At Sky130 (130nm open-source), you'd multiply delays by roughly 15–20x. The pipeline would still be the right choice, but the combinational design's 20-level cone would fail to close at anything above ~100 MHz.
 
 The full RTL, testbenches, synthesis scripts, and simulation data are in the repository. Everything needed to reproduce these results from a `git clone`.
 
@@ -551,7 +552,7 @@ find-first-set/
 │   ├── ffs_combinational.sv   # Parallel generate tree (8 FFs, 20 logic levels)
 │   └── ffs_pipeline.sv        # log₂(W) pipeline stages (90 FFs, 6 logic levels)
 ├── tb/
-│   └── tb_ffs_top.sv          # Unified testbench — all 3 designs driven in parallel
+│   └── tb_ffs_top.sv          # Unified testbench, all 3 designs driven in parallel
 ├── verilator/
 │   ├── sim_sequential.cpp     # Cycle-accurate harness + per-vector latency logging
 │   ├── sim_combinational.cpp
@@ -573,14 +574,14 @@ find-first-set/
 
 ## License
 
-MIT — use freely, attribution appreciated.
+MIT. Use freely, attribution appreciated.
 
 ## Author
 
-**Akshay Prasad** — [akshayprasad.com](https://akshayprasad.com) · [GitHub](https://github.com/akshay-b-prasad/find-first-set)
+**Akshay Prasad** | [akshayprasad.com](https://akshayprasad.com) · [GitHub](https://github.com/akshay-b-prasad/find-first-set)
 
 ---
 
 *Synthesized with Yosys 0.52 using the ASAP7-approximate liberty stub (`synth/asap7_approx.lib`).
-Timing estimates use 20 ps/level — a conservative 7nm approximation.
+Timing estimates use 20 ps/level, a conservative 7nm approximation.
 For sign-off accuracy, run with the full ASAP7 PDK liberty and OpenSTA.*
