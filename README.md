@@ -54,7 +54,7 @@ Before writing a single line of RTL, a real designer asks: **what are the constr
   ┌─────────────────────┬────────────┬──────────────┬───────────┐
   │ Design              │ Latency    │ Throughput   │ Area      │
   ├─────────────────────┼────────────┼──────────────┼───────────┤
-  │ Sequential (FSM)    │ 3–66 cyc   │ 1/66 cyc⁻¹  │ ░░░       │
+  │ Sequential (FSM)    │ 3–66 cyc   │ 1/66 cyc⁻¹   │ ░░░       │
   │ Combinational       │ 1 cyc      │ 1 cyc⁻¹      │ ░░░░░░░   │
   │ Pipeline (log₂ BST) │ 6 cyc      │ 1 cyc⁻¹      │ ░░░░░     │
   └─────────────────────┴────────────┴──────────────┴───────────┘
